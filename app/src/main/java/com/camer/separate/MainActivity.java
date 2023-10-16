@@ -21,6 +21,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 
 import android.hardware.camera2.*;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import java.util.Arrays;
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private TextureView textureView1;
     private TextureView textureView2;
     private String cameraId;
+    private TextView text;
     private CaptureRequest.Builder previewRequestBuilder;
     private CaptureRequest previewRequest;
 
@@ -41,12 +43,25 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        text = findViewById(R.id.text);
         textureView1 = findViewById(R.id.textureView1);
         textureView2 = findViewById(R.id.textureView2);
         textureView1.setSurfaceTextureListener(surfaceTextureListener);
         textureView2.setSurfaceTextureListener(surfaceTextureListener);
 
 
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        windowManager.getDefaultDisplay().getMetrics(displayMetrics);
+
+        int screenWidth = displayMetrics.widthPixels;
+        int screenHeight = displayMetrics.heightPixels;
+        text.setText("屏幕分辨率："+screenWidth+"*"+screenHeight);
     }
 
     private TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
