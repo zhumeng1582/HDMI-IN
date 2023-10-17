@@ -1,13 +1,13 @@
 package com.camer.separate;
 
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CaptureRequest;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
 
@@ -21,6 +21,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 
 import android.hardware.camera2.*;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -41,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
         setContentView(R.layout.activity_main);
 
         text = findViewById(R.id.text);
@@ -62,6 +65,12 @@ public class MainActivity extends AppCompatActivity {
         int screenWidth = displayMetrics.widthPixels;
         int screenHeight = displayMetrics.heightPixels;
         text.setText("屏幕分辨率："+screenWidth+"*"+screenHeight);
+        text.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                text.setVisibility(View.GONE);
+            }
+        },2000);
     }
 
     private TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
@@ -107,9 +116,9 @@ public class MainActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE);
                 return;
             }
-//            configureTransform(textureView1);
-//            configureTransform(textureView2);
-
+            configureTransform(textureView1);
+            configureTransform(textureView2);
+            Log.d("openCamera","------->cameraId = " +cameraId);
             cameraManager.openCamera(cameraId, stateCallback, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -210,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
             case Surface.ROTATION_180: degrees = 180; break; // Upside down
             case Surface.ROTATION_270: degrees = 270; break; // Landscape right
         }
-        return 90;
+        return degrees;
     }
 
 }
