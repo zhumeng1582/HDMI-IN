@@ -107,8 +107,8 @@ public class MainActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE);
                 return;
             }
-            configureTransform(textureView1);
-            configureTransform(textureView2);
+//            configureTransform(textureView1);
+//            configureTransform(textureView2);
 
             cameraManager.openCamera(cameraId, stateCallback, null);
         } catch (CameraAccessException e) {
@@ -186,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
                     captureSession = session;
                     try {
                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                        previewRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, getDegrees());
+//                        previewRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, getDegrees());
                         previewRequest = previewRequestBuilder.build();
                         captureSession.setRepeatingRequest(previewRequest, null, null);
                     } catch (CameraAccessException e) {
