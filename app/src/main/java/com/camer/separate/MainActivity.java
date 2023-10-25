@@ -1,10 +1,14 @@
 package com.camer.separate;
 
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -15,7 +19,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.content.Context;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
@@ -34,10 +37,11 @@ public class MainActivity extends AppCompatActivity {
     private CameraCaptureSession captureSession;
     private TextureView textureView1;
     private TextureView textureView2;
-    private String cameraId;
     private TextView text;
+    private TextView textTips;
     private CaptureRequest.Builder previewRequestBuilder;
     private CaptureRequest previewRequest;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,12 +51,34 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         text = findViewById(R.id.text);
+        textTips = findViewById(R.id.textTips);
         textureView1 = findViewById(R.id.textureView1);
         textureView2 = findViewById(R.id.textureView2);
         textureView1.setSurfaceTextureListener(surfaceTextureListener);
         textureView2.setSurfaceTextureListener(surfaceTextureListener);
 
+        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
 
+
+        BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String action = intent.getAction();
+                if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                    // USB设备连接，你可以在这里打开摄像头
+                    setupCamera();
+                } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                    // USB设备断开，你可以在这里关闭摄像头
+                    textTips.setText("无信号输入，已断开");
+                }
+            }
+        };
+
+        // 在你的Activity或Service中注册BroadcastReceiver
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        registerReceiver(usbReceiver, filter);
     }
 
     @Override
@@ -64,20 +90,20 @@ public class MainActivity extends AppCompatActivity {
 
         int screenWidth = displayMetrics.widthPixels;
         int screenHeight = displayMetrics.heightPixels;
-        text.setText("屏幕分辨率："+screenWidth+"*"+screenHeight);
+        text.setText("屏幕分辨率：" + screenWidth + "*" + screenHeight);
         text.postDelayed(new Runnable() {
             @Override
             public void run() {
                 text.setVisibility(View.GONE);
             }
-        },2000);
+        }, 2000);
     }
 
     private TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            setupCamera(width, height);
-            openCamera();
+            setupCamera();
+
         }
 
         @Override
@@ -94,43 +120,46 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void setupCamera(int width, int height) {
-        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+    private void setupCamera() {
+
         try {
             for (String cameraId : cameraManager.getCameraIdList()) {
                 CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
                 if (cameraCharacteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
                     continue;
                 }
-                this.cameraId = cameraId;
+                openCamera(cameraId);
                 break;
             }
-        } catch (CameraAccessException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void openCamera() {
+    private void openCamera(String cameraId) {
         try {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE);
                 return;
             }
+
             configureTransform(textureView1);
             configureTransform(textureView2);
-            Log.d("openCamera","------->cameraId = " +cameraId);
+            Log.d("openCamera", "------->cameraId = " + cameraId);
             cameraManager.openCamera(cameraId, stateCallback, null);
-        } catch (CameraAccessException e) {
+        } catch (Exception e) {
+            textTips.setText("无信号输入，已断开");
             e.printStackTrace();
         }
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
             case REQUEST_CODE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    openCamera();
+                    setupCamera();
                 } else {
                     // Permission denied
                 }
@@ -143,18 +172,23 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onOpened(CameraDevice camera) {
             cameraDevice = camera;
+            textTips.setText("");
             createCameraPreviewSession();
         }
 
         @Override
         public void onDisconnected(CameraDevice camera) {
             cameraDevice.close();
+            textTips.setText("无信号输入，已断开");
+
             cameraDevice = null;
         }
 
         @Override
         public void onError(CameraDevice camera, int error) {
             cameraDevice.close();
+            textTips.setText("无信号输入，已断开");
+
             cameraDevice = null;
         }
     };
@@ -187,39 +221,36 @@ public class MainActivity extends AppCompatActivity {
             previewRequestBuilder.addTarget(surface);
             previewRequestBuilder.addTarget(surface2);
 
-            cameraDevice.createCaptureSession(Arrays.asList(surface,surface2), new CameraCaptureSession.StateCallback() {
+            cameraDevice.createCaptureSession(Arrays.asList(surface, surface2), new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession session) {
-                    if (cameraDevice == null) return;
 
-                    captureSession = session;
                     try {
+                        if (cameraDevice == null) return;
+                        captureSession = session;
+
                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
 //                        previewRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, getDegrees());
                         previewRequest = previewRequestBuilder.build();
                         captureSession.setRepeatingRequest(previewRequest, null, null);
-                    } catch (CameraAccessException e) {
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
 
                 @Override
-                public void onConfigureFailed(CameraCaptureSession session) {}
+                public void onConfigureFailed(CameraCaptureSession session) {
+                }
             }, null);
-        } catch (CameraAccessException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public int getDegrees() {
-        int rotation = getWindowManager().getDefaultDisplay().getRotation();
-        int degrees = 0;
-        switch (rotation) {
-            case Surface.ROTATION_0: degrees = 0; break; // Natural orientation
-            case Surface.ROTATION_90: degrees = 90; break; // Landscape left
-            case Surface.ROTATION_180: degrees = 180; break; // Upside down
-            case Surface.ROTATION_270: degrees = 270; break; // Landscape right
-        }
-        return degrees;
-    }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+
+    }
 }
