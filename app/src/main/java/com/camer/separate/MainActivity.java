@@ -62,10 +62,11 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         // 执行定时任务
-                        if (cameraDevice == null) {
-                            openCamera();
-                        } else {
+                        String cameraId = getCameraId();
+                        if (cameraId == null) {
                             cameraError();
+                        } else if (cameraDevice == null) {
+                            openCamera();
                         }
                     }
                 });
