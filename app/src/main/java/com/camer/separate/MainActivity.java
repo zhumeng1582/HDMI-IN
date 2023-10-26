@@ -29,6 +29,8 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import java.util.Arrays;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE = 1;
@@ -41,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView textTips;
     private CaptureRequest.Builder previewRequestBuilder;
     private CaptureRequest previewRequest;
+    private final Timer timer = new Timer();
 
 
     @Override
@@ -59,26 +62,18 @@ public class MainActivity extends AppCompatActivity {
 
         cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
 
-
-        BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+        timer.schedule(new TimerTask() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
-                    // USB设备连接，你可以在这里打开摄像头
+            public void run() {
+                // 执行定时任务
+                if (CameraUtils.hasBackFacingCamera() && cameraDevice == null) {
                     setupCamera();
-                } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
-                    // USB设备断开，你可以在这里关闭摄像头
+                } else {
                     textTips.setText("无信号输入，已断开");
                 }
             }
-        };
+        }, 1000, 1000); // 延迟1秒后，每1秒执行一次
 
-        // 在你的Activity或Service中注册BroadcastReceiver
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
-        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
-        registerReceiver(usbReceiver, filter);
     }
 
     @Override
@@ -97,6 +92,14 @@ public class MainActivity extends AppCompatActivity {
                 text.setVisibility(View.GONE);
             }
         }, 2000);
+
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+//        timer.cancel();
     }
 
     private TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
@@ -133,6 +136,7 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            cameraError();
         }
     }
 
@@ -148,8 +152,8 @@ public class MainActivity extends AppCompatActivity {
             Log.d("openCamera", "------->cameraId = " + cameraId);
             cameraManager.openCamera(cameraId, stateCallback, null);
         } catch (Exception e) {
-            textTips.setText("无信号输入，已断开");
             e.printStackTrace();
+            cameraError();
         }
     }
 
@@ -178,20 +182,23 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onDisconnected(CameraDevice camera) {
-            cameraDevice.close();
-            textTips.setText("无信号输入，已断开");
-
-            cameraDevice = null;
+            cameraError();
         }
 
         @Override
         public void onError(CameraDevice camera, int error) {
-            cameraDevice.close();
-            textTips.setText("无信号输入，已断开");
-
-            cameraDevice = null;
+            cameraError();
         }
     };
+
+    private void cameraError() {
+        if (cameraDevice != null) {
+            cameraDevice.close();
+            cameraDevice = null;
+        }
+        textTips.setText("无信号输入，已断开");
+
+    }
 
     private void configureTransform(TextureView textureView) {
 
@@ -235,6 +242,7 @@ public class MainActivity extends AppCompatActivity {
                         captureSession.setRepeatingRequest(previewRequest, null, null);
                     } catch (Exception e) {
                         e.printStackTrace();
+                        cameraError();
                     }
                 }
 
@@ -244,13 +252,12 @@ public class MainActivity extends AppCompatActivity {
             }, null);
         } catch (Exception e) {
             e.printStackTrace();
+            cameraError();
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-
     }
 }
