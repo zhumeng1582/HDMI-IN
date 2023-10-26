@@ -1,14 +1,10 @@
 package com.camer.separate;
 
-import android.content.BroadcastReceiver;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -65,12 +61,18 @@ public class MainActivity extends AppCompatActivity {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                // 执行定时任务
-                if (getCameraId() != null && cameraDevice == null) {
-                    setupCamera();
-                } else {
-                    textTips.setText("无信号输入，已断开");
-                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        // 执行定时任务
+                        if (getCameraId() != null && cameraDevice == null) {
+                            openCamera();
+                        } else {
+                            textTips.setVisibility(View.VISIBLE);
+                        }
+                    }
+                });
+
             }
         }, 1000, 1000); // 延迟1秒后，每1秒执行一次
 
@@ -105,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
     private TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            setupCamera();
+            openCamera();
 
         }
 
@@ -139,22 +141,13 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
-    private void setupCamera() {
-        try {
-            openCamera(getCameraId());
-        } catch (Exception e) {
-            e.printStackTrace();
-            cameraError();
-        }
-    }
-
-    private void openCamera(String cameraId) {
+    private void openCamera() {
         try {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE);
                 return;
             }
-
+            String cameraId = getCameraId();
             configureTransform(textureView1);
             configureTransform(textureView2);
             Log.d("openCamera", "------->cameraId = " + cameraId);
@@ -165,13 +158,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
             case REQUEST_CODE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    setupCamera();
+                    openCamera();
                 } else {
                     // Permission denied
                 }
@@ -184,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onOpened(CameraDevice camera) {
             cameraDevice = camera;
-            textTips.setText("");
+            textTips.setVisibility(View.GONE);
             createCameraPreviewSession();
         }
 
@@ -204,7 +198,7 @@ public class MainActivity extends AppCompatActivity {
             cameraDevice.close();
             cameraDevice = null;
         }
-        textTips.setText("无信号输入，已断开");
+        textTips.setVisibility(View.VISIBLE);
 
     }
 
