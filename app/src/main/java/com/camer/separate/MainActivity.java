@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 // 执行定时任务
-                if (CameraUtils.hasBackFacingCamera() && cameraDevice == null) {
+                if (getCameraId() != null && cameraDevice == null) {
                     setupCamera();
                 } else {
                     textTips.setText("无信号输入，已断开");
@@ -123,17 +123,25 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void setupCamera() {
-
+    String getCameraId() {
         try {
             for (String cameraId : cameraManager.getCameraIdList()) {
                 CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
                 if (cameraCharacteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
                     continue;
                 }
-                openCamera(cameraId);
-                break;
+                return cameraId;
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            cameraError();
+        }
+        return null;
+    }
+
+    private void setupCamera() {
+        try {
+            openCamera(getCameraId());
         } catch (Exception e) {
             e.printStackTrace();
             cameraError();
