@@ -32,13 +32,10 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE = 1;
     private CameraManager cameraManager;
     private CameraDevice cameraDevice;
-    private CameraCaptureSession captureSession;
     private TextureView textureView1;
     private TextureView textureView2;
     private TextView text;
     private TextView textTips;
-    private CaptureRequest.Builder previewRequestBuilder;
-    private CaptureRequest previewRequest;
     private final Timer timer = new Timer();
 
 
@@ -65,16 +62,16 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         // 执行定时任务
-                        if (getCameraId() != null && cameraDevice == null) {
+                        if (cameraDevice == null) {
                             openCamera();
                         } else {
-                            textTips.setVisibility(View.VISIBLE);
+                            cameraError();
                         }
                     }
                 });
 
             }
-        }, 1000, 1000); // 延迟1秒后，每1秒执行一次
+        }, 2000, 2000); // 延迟2秒后，每1秒执行一次
 
     }
 
@@ -108,7 +105,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             openCamera();
-
         }
 
         @Override
@@ -145,9 +141,14 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, REQUEST_CODE);
+                cameraError();
                 return;
             }
             String cameraId = getCameraId();
+            if (cameraId == null) {
+                cameraError();
+                return;
+            }
             configureTransform(textureView1);
             configureTransform(textureView2);
             Log.d("openCamera", "------->cameraId = " + cameraId);
@@ -178,7 +179,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onOpened(CameraDevice camera) {
             cameraDevice = camera;
-            textTips.setVisibility(View.GONE);
             createCameraPreviewSession();
         }
 
@@ -226,22 +226,23 @@ public class MainActivity extends AppCompatActivity {
             SurfaceTexture texture2 = textureView2.getSurfaceTexture();
 //            texture2.setDefaultBufferSize(textureView1.getWidth(), textureView1.getHeight());
             Surface surface2 = new Surface(texture2);
-            previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+            CaptureRequest.Builder previewRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             previewRequestBuilder.addTarget(surface);
             previewRequestBuilder.addTarget(surface2);
-
             cameraDevice.createCaptureSession(Arrays.asList(surface, surface2), new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession session) {
 
                     try {
-                        if (cameraDevice == null) return;
-                        captureSession = session;
-
+                        if (cameraDevice == null) {
+                            cameraError();
+                            return;
+                        }
+                        textTips.setVisibility(View.GONE);
                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
 //                        previewRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, getDegrees());
-                        previewRequest = previewRequestBuilder.build();
-                        captureSession.setRepeatingRequest(previewRequest, null, null);
+                        session.setRepeatingRequest(previewRequestBuilder.build(), null, null);
                     } catch (Exception e) {
                         e.printStackTrace();
                         cameraError();
@@ -250,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onConfigureFailed(CameraCaptureSession session) {
+                    cameraError();
                 }
             }, null);
         } catch (Exception e) {
