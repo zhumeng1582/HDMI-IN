@@ -2,9 +2,18 @@ plugins {
     id("com.android.application")
 }
 
+
 android {
     namespace = "com.camer.separate"
     compileSdk = 33
+    signingConfigs {
+        create("keyStore") {
+            keyAlias = "key0"
+            keyPassword = "123456"
+            storeFile = file("../key")
+            storePassword = "123456"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.org.ido.hdmiin"
@@ -23,6 +32,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("keyStore")
         }
     }
     compileOptions {
